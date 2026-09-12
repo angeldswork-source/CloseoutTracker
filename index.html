@@ -1703,6 +1703,77 @@ document.addEventListener('click', ()=>{
   document.getElementById('menuDropdown').classList.remove('show');
 });
 
+async function testSupabaseConnection(){
+  if(!supabaseConfigured || !supabaseClient){
+    console.error('Supabase connection test failed: Supabase is not configured. Check SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.');
+    return false;
+  }
+
+  try{
+    const { data, error } = await supabaseClient
+      .from('closeout_entries')
+      .select('id')
+      .limit(1);
+
+    if(error){
+      const errorSummary = {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status: error.status,
+        cause: error.cause,
+        stack: error.stack
+      };
+
+      console.error('Supabase connection test failed with full error object:', errorSummary);
+
+      const likelyCause =
+        error.code === '42P01' || error.code === '42703' || error.code === 'PGRST205'
+          ? 'missing database table'
+          : error.code === '42501' || String(error.message || '').toLowerCase().includes('row level security') || String(error.message || '').toLowerCase().includes('policy')
+            ? 'RLS/policy'
+            : /invalid|api key|url/.test(String(error.message || '').toLowerCase())
+              ? 'Supabase URL/key configuration'
+              : /fetch|network|failed/.test(String(error.message || '').toLowerCase())
+                ? 'network/library issue'
+                : 'JavaScript/application issue';
+
+      console.error('Likely cause category:', likelyCause);
+      throw error;
+    }
+
+    console.log('Supabase connection successful');
+    return Array.isArray(data);
+  }catch(error){
+    console.error('Supabase connection test failed with full error object:', error);
+    const errorSummary = {
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code,
+      status: error?.status,
+      cause: error?.cause,
+      stack: error?.stack
+    };
+    console.error('Supabase error summary:', errorSummary);
+
+    const likelyCause =
+      error?.code === '42P01' || error?.code === '42703' || error?.code === 'PGRST205'
+        ? 'missing database table'
+        : error?.code === '42501' || String(error?.message || '').toLowerCase().includes('row level security') || String(error?.message || '').toLowerCase().includes('policy')
+          ? 'RLS/policy'
+          : /invalid|api key|url/.test(String(error?.message || '').toLowerCase())
+            ? 'Supabase URL/key configuration'
+            : /fetch|network|failed/.test(String(error?.message || '').toLowerCase())
+              ? 'network/library issue'
+              : 'JavaScript/application issue';
+
+    console.error('Likely cause category:', likelyCause);
+    throw error;
+  }
+}
+
 /* ---------- init ---------- */
 
 (async function init(){
@@ -1718,6 +1789,7 @@ document.addEventListener('click', ()=>{
   }
 
   try{
+    await testSupabaseConnection();
     // This checks the connection and loads the database.
     await getAllEntries();
     await seedExtranetListsIfNeeded();
